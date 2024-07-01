@@ -186,7 +186,11 @@ if __name__ == "__main__":
     max_eps_dict = load_episodes()["max_episode_length"]
     task_success_rates = {}
 
+    os.makedirs(f'./eval_logs/videos', exist_ok=True) # video save folder
+    
     for task_str in args.tasks:
+        os.makedirs(f'./eval_logs/videos/{task_str}', exist_ok=True)
+        
         var_success_rates = env.evaluate_task_on_multiple_variations(
             task_str,
             max_steps=(

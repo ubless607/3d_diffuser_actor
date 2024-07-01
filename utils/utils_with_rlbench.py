@@ -24,6 +24,9 @@ from rlbench.demo import Demo
 from pyrep.errors import IKError, ConfigurationPathError
 from pyrep.const import RenderMode
 
+import moviepy.video.io.ImageSequenceClip
+from moviepy.editor import vfx
+import cv2
 
 ALL_RLBENCH_TASKS = [
     'basketball_in_hoop', 'beat_the_buzz', 'change_channel', 'change_clock', 'close_box',
@@ -47,6 +50,11 @@ ALL_RLBENCH_TASKS = [
 ]
 TASK_TO_ID = {task: i for i, task in enumerate(ALL_RLBENCH_TASKS)}
 
+def normalize_image(img):
+    min_val = img.min()
+    max_val = img.max()
+    img_normalized = (img - min_val) / (max_val - min_val)
+    return img_normalized
 
 def task_file_to_task_class(task_file):
     import importlib
@@ -512,6 +520,10 @@ class RLBenchEnv:
             reward = 0.0
             max_reward = 0.0
 
+#####################################################################################################################
+            video_1, video_2, video_3, video_4 = [], [], [], [] # video
+#####################################################################################################################
+
             for step_id in range(max_steps):
 
                 # Fetch the current observation, and predict one action
@@ -519,6 +531,21 @@ class RLBenchEnv:
                 rgb = rgb.to(device)
                 pcd = pcd.to(device)
                 gripper = gripper.to(device)
+
+#####################################################################################################################
+                rgb_images = rgb[0]
+                rgb_views = rgb_images[:, :3, :, :] # shape [4, 3, 256, 256]
+                rgb_views = rgb_views.permute(0, 2, 3, 1).cpu().numpy()  # shape [4, 256, 256, 3]
+
+                video_1.append(normalize_image(rgb_views[0])) # pixel value range (-1, 1) -> normalize
+                video_2.append(normalize_image(rgb_views[1]))
+                video_3.append(normalize_image(rgb_views[2]))
+                video_4.append(normalize_image(rgb_views[3]))
+
+                if reward == 1: # success
+                    success_rate += 1
+                    break
+#####################################################################################################################
 
                 rgbs = torch.cat([rgbs, rgb.unsqueeze(1)], dim=1)
                 pcds = torch.cat([pcds, pcd.unsqueeze(1)], dim=1)
@@ -589,7 +616,25 @@ class RLBenchEnv:
                     print(task_str, demo, step_id, success_rate, e)
                     reward = 0
                     #break
+                    
+#####################################################################################################################
+            fps=3
 
+            video_1 = [(frame * 255) for frame in video_1]
+            video_2 = [(frame * 255) for frame in video_2]
+            video_3 = [(frame * 255) for frame in video_3]
+            video_4 = [(frame * 255) for frame in video_4]
+
+            clip = moviepy.video.io.ImageSequenceClip.ImageSequenceClip(video_1, fps=fps)
+            clip.write_videofile(f"./eval_logs/videos/{task_str}/var{variation}_{demo_id}_cam01.mp4")
+            clip = moviepy.video.io.ImageSequenceClip.ImageSequenceClip(video_2, fps=fps)
+            clip.write_videofile(f"./eval_logs/videos/{task_str}/var{variation}_{demo_id}_cam02.mp4")
+            clip = moviepy.video.io.ImageSequenceClip.ImageSequenceClip(video_3, fps=fps)
+            clip.write_videofile(f"./eval_logs/videos/{task_str}/var{variation}_{demo_id}_cam03.mp4")
+            clip = moviepy.video.io.ImageSequenceClip.ImageSequenceClip(video_4, fps=fps)
+            clip.write_videofile(f"./eval_logs/videos/{task_str}/var{variation}_{demo_id}_cam04.mp4")
+#####################################################################################################################
+            
             total_reward += max_reward
             if reward == 0:
                 step_id += 1
