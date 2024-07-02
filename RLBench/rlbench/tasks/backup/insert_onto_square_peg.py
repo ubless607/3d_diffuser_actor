@@ -3,10 +3,11 @@ import numpy as np
 from pyrep.objects import Dummy
 from pyrep.objects.proximity_sensor import ProximitySensor
 from pyrep.objects.shape import Shape
-from rlbench.backend.conditions import DetectedCondition, ConditionSet, GraspedCondition, OrConditions, GripperTouchCondition
+from rlbench.backend.conditions import DetectedCondition, ConditionSet, GraspedCondition
 from rlbench.backend.spawn_boundary import SpawnBoundary
 from rlbench.backend.task import Task
 from rlbench.const import colors
+
 
 class InsertOntoSquarePeg(Task):
 
@@ -15,18 +16,13 @@ class InsertOntoSquarePeg(Task):
         self._success_centre = Dummy('success_centre')
         success_detectors = [ProximitySensor(
             'success_detector%d' % i) for i in range(4)]
-        touch_detectors = [ProximitySensor(
-            'touch_detector%d' % i) for i in range(4)]
         self.register_graspable_objects([self._square_ring])
-        self.success_condition = [GripperTouchCondition(self.robot.gripper, touch_detectors[0]), GripperTouchCondition(self.robot.gripper, touch_detectors[2])]
-        #success_condition = ConditionSet([DetectedCondition(
-        #   self._square_ring, sd) for sd in success_detectors])
-        self.register_success_conditions([OrConditions(self.success_condition)])
+        #success_condition = ConditionSet([GraspedCondition(self.robot.gripper, self._square_ring)])
+        success_condition = ConditionSet([DetectedCondition(
+           self._square_ring, sd) for sd in success_detectors])
+        self.register_success_conditions([success_condition])
 
     def init_episode(self, index: int) -> List[str]:
-        for cond in self.success_condition:
-            cond.reset()
-        
         color_name, color_rgb = colors[index]
         spokes = [Shape('pillar0'), Shape('pillar1'), Shape('pillar2')]
         chosen_pillar = np.random.choice(spokes)

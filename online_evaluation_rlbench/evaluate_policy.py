@@ -8,6 +8,8 @@ import os
 import torch
 import numpy as np
 import tap
+import sys
+sys.path = ['/home/commonsense/data/cvpr/3d_diffuser_actor_sj/RLBench' if 'RLBench' in p else p for p in sys.path]
 
 from diffuser_actor.keypose_optimization.act3d import Act3D
 from diffuser_actor.trajectory_optimization.diffuser_actor import DiffuserActor

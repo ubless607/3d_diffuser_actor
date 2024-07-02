@@ -5,6 +5,7 @@ from pyrep.objects.joint import Joint
 from pyrep.objects.object import Object
 from pyrep.objects.proximity_sensor import ProximitySensor
 from pyrep.robots.end_effectors.gripper import Gripper
+from pyrep.backend import sim
 
 
 class Condition(object):
@@ -26,6 +27,34 @@ class ColorCondition(object):
         met = (obj_rgb == self.success_rgb)
         return met, False
 
+class GripperTouchCondition(Condition):
+    def __init__(self, gripper: Gripper, touch_sensor: ProximitySensor):
+        self._gripper = gripper
+        self._touch_sensor = touch_sensor
+        self.intermediate_flag = False
+
+    def _get_force_contact_part(self) -> Shape:
+            """Returns the shape that contains 'force_contact' in its name."""
+            gripper_handle = self._gripper.get_handle()
+            all_shapes = sim.simGetObjectsInTree(gripper_handle, sim.sim_object_shape_type, 0)
+            for shape_handle in all_shapes:
+                shape_name = sim.simGetObjectName(shape_handle)
+                if "force_contact" in shape_name.lower():
+                    return Shape(shape_handle)
+            return None
+
+    def condition_met(self):
+        if self.intermediate_flag:
+            return True, False
+        
+        force_contact_part = self._get_force_contact_part()
+        if force_contact_part and self._touch_sensor.is_detected(force_contact_part):
+            self.intermediate_flag = True
+            return False, False
+        return False, False
+    
+    def reset(self):
+        self.intermediate_flag = False
 
 class JointCondition(Condition):
     def __init__(self, joint: Joint, position: float):
